@@ -1,6 +1,9 @@
 import express, { response } from "express";
+import pool from "../../database/db.connection.js";
+import genToken from "../../utils/set.cookie.js";
 import axios from 'axios';
 import qs from 'qs';
+import authMiddleware from "../../middleware/auth.middleware.js";
 const router = express();
 
 router.use(express.json())
@@ -31,10 +34,49 @@ router.post('/google', async (req, res) => {
             }
         })
 
-        console.log(userInfo.data)
+        //checking user in database
+        try {
+            const sql = 'SELECT user_id, user_name, user_handle, user_email, provider, google_id, user_profile FROM users WHERE user_email = ? AND provider = ? AND google_id = ?';
+            const values = [userInfo.data.email, 'google', userInfo.data.id]
+            const [sqlData] = await pool.query(sql, values);
+
+            //if user existst generate and send cookie to user
+            if (sqlData.length !== 0) {
+                genToken(sqlData[0].user_id, sqlData[0].user_handle, sqlData[0].user_name, res);
+                return res.status(200).json({ message: "cookie set successfully" });
+            }
+
+            else {
+                //creating new handle
+                const random = Math.floor(1000 + Math.random() * 9000);
+                const genHandle = userInfo.data.given_name + random;
+
+                try {
+                    //if user did not exists create new user
+                    const sqlToCreateUser = 'INSERT INTO users(user_name, user_handle, user_email, provider, google_id, user_Profile) values (?, ?, ?, ?, ?, ?)';
+                    const valuesToCreateUser = [userInfo.data.name, genHandle, userInfo.data.email, 'google', userInfo.data.id, userInfo.data.picture];
+                    const [createUser] = await pool.query(sqlToCreateUser, valuesToCreateUser);
+
+                    //sending cookie token
+                    genToken(createUser.insertId, genHandle, userInfo.data.name, res);
+                    return res.status(200).json({ message: "cookie set successfully" });
+                } catch (error) {
+                    console.log('error in creating user from google OAuth2.O', error);
+                }
+            }
+        } catch (error) {
+            console.log('error in fetchig user info for google OAuth2.O', error)
+        }
+
+
+
     } catch (error) {
-        return res.status(400).json({message: 'unauthorize or token expired'})
+        return res.status(400).json({ message: 'unauthorize or token expired' })
     }
-})
+});
+
+router.get('/me', authMiddleware, async (req, res) => {
+    res.status(200).json({info: req.user});
+});
 
 export default router;

@@ -1,12 +1,14 @@
 import express from "express";
 import cors from 'cors';
 import dotenv from "dotenv";
+import cookieParser from "cookie-parser";
 import auth from './router/authentication/auth.js';
 import pool from "./database/db.connection.js";
 
 dotenv.config();
 const PORT = process.env.PORT || 8000;
 const app = express();
+app.use(cookieParser());
 app.use(express.json({limit: '10mb'}));
 app.use(cors({
     origin: '*',
