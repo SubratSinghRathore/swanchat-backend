@@ -11,7 +11,7 @@ const app = express();
 app.use(cookieParser());
 app.use(express.json({limit: '10mb'}));
 app.use(cors({
-    origin: '*',
+    origin: 'http://localhost:5173',
     credentials: true,
     allowedHeaders: ['Content-Type', 'Authorization', 'Custom-Header'],
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS']
