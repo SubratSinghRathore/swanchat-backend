@@ -7,8 +7,8 @@ const genToken = (user_id, user_handle, user_name, res) => {
     res.cookie('jwt', token, {
         maxAge: 7 * 24 * 60 * 60 * 1000,
         httpOnly: true,
-        sameSite: 'Lax',
-        secure: false,
+        sameSite: 'None',
+        secure: true,
         // domain: 'swan-backend.onrender.com'
     })
 }
