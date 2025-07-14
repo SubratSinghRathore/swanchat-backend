@@ -16,7 +16,7 @@ router.post('/google', async (req, res) => {
             code: code,
             client_id: process.env.GOOGLE_CLIENT_ID,
             client_secret: process.env.GOOGLE_CLIENT_SECRET,
-            redirect_uri: 'https://localhost:5173',
+            redirect_uri: 'http://localhost:5173',
             grant_type: 'authorization_code'
         })
 
