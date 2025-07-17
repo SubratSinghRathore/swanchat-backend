@@ -2,11 +2,15 @@ import express, { response } from "express";
 import pool from "../../database/db.connection.js";
 import genToken from "../../utils/set.cookie.js";
 import axios from 'axios';
+import bcrypt from 'bcryptjs';
+import * as z from 'zod';
 import qs from 'qs';
 import authMiddleware from "../../middleware/auth.middleware.js";
 const router = express();
 
 router.use(express.json())
+
+//Signup and Signin by google
 router.post('/google', async (req, res) => {
     try {
         const code = req.body.code;
@@ -58,7 +62,7 @@ router.post('/google', async (req, res) => {
                     const [createUser] = await pool.query(sqlToCreateUser, valuesToCreateUser);
 
                     //sending cookie token
-                    genToken(createUser.insertId, genHandle, userInfo.data.name, res);
+                    await genToken(createUser.insertId, genHandle, userInfo.data.name, res);
                     return res.status(200).json({ message: "cookie set successfully" });
                 } catch (error) {
                     console.log('error in creating user from google OAuth2.O', error);
@@ -75,8 +79,130 @@ router.post('/google', async (req, res) => {
     }
 });
 
+//Verify user by cookie and sending back their data
 router.get('/me', authMiddleware, async (req, res) => {
-    res.status(200).json({info: req.user});
+    res.status(200).json({ info: req.user });
 });
+
+//Signup by manual way
+router.post('/signup', async (req, res) => {
+
+    try {
+        //zod validation
+        const userZod = z.object({
+            user_name: z.string().min(6).max(25),
+            user_handle: z.string().min(6).max(25),
+            user_email: z.string().email(),
+            user_password: z.string().min(8)
+        });
+
+        // Retriving data from zod
+        const zodData = userZod.safeParse(req.body);
+
+        //checking validation
+        if (!zodData.success) {
+            return res.status(400).json({ message: zodData.error.message });
+        }
+
+        //hashing the password
+        const salt = await bcrypt.genSalt(10);
+        const hashPassword = await bcrypt.hash(zodData.data.user_password, salt);
+
+        // OTP verification should do here
+        // user need to verify OTP in between time period
+
+        //storing user data to database
+        try {
+            const sql = 'INSERT INTO users(user_name, user_handle, user_email, user_password, provider) values(?, ?, ?, ?, ?)';
+            const values = [zodData.data.user_name, zodData.data.user_handle, zodData.data.user_email, hashPassword, 'local'];
+            const [newUser] = await pool.query(sql, values);
+
+            if (parseInt(newUser.affectedRows) === 1) {
+                //sending cookie token
+                await genToken(newUser.insertId, zodData.data.user_handle, zodData.data.user_name, res);
+                return res.status(200).json({ message: "cookie set successfully" });
+            };
+        } catch (error) {
+            console.log('error in signup caused in sql query', error);
+            return res.status(500).json({ message: 'invalid credentials or internal server error' });
+        }
+    } catch (error) {
+        console.log('error in signup route', error);
+        res.status(500).json({ message: 'invalid credentials or internal server error' });
+    }
+
+});
+
+//SignIn by manual way
+router.post('/login', async (req, res) => {
+    try {
+        //zod validation
+        const userZod = z.object({
+            user_handle_or_user_email: z.string(),
+            user_password: z.string().min(8)
+        });
+
+        // Retriving data from zod
+        const zodData = userZod.safeParse(req.body);
+
+        //checking validation
+        if (!zodData.success) {
+            return res.status(400).json({ message: zodData.error.message });
+        }
+
+        // Finding user by email
+        try {
+            const sql = 'SELECT * FROM users WHERE user_email = ?';
+            const values = [zodData.data.user_handle_or_user_email];
+            const [foundUser] = await pool.query(sql, values);
+            if (foundUser.length > 0) {
+                // Looping for password match
+                for (var i = 0; i < foundUser.length; i++) {
+                    const match = await bcrypt.compare(zodData.data.user_password, foundUser[i].user_password);
+                    if (match) {
+                        //Sending cookie token
+                        genToken(foundUser[i].user_id, foundUser[i].user_handle, foundUser[i].user_name, res);
+                        return res.status(200).json({ message: "cookie set successfully" });
+                    }
+                }
+            }
+        } catch (error) {
+            console.log('error in finding user by email', error);
+        }
+
+        //Finding user by handle
+        try {
+            const sql = 'SELECT * FROM users WHERE user_handle = ?';
+            const values = [zodData.data.user_handle_or_user_email];
+            const [foundUser] = await pool.query(sql, values);
+
+            if (foundUser.length > 0) {
+                const match = await bcrypt.compare(zodData.data.user_password, foundUser[0].user_password);
+                if (match) {
+                    // Sending cookie token
+                    genToken(foundUser[0].user_id, foundUser[0].user_handle, foundUser[0].user_name, res);
+                    return res.status(200).json({ message: "cookie set successfully" });
+                }
+            }
+        } catch (error) {
+            console.log('error in finding user by handle', error);
+        }
+        return res.status(400).json({ message: 'Invalid Credentials' });
+    } catch (error) {
+        console.log('error in login route', error);
+    }
+});
+
+// Logout route
+router.post("/logout", async (req, res) => {
+    res.cookie('jwt', '', {
+        maxAge: 0,
+        httpOnly: true,
+        sameSite: 'None',
+        secure: true,
+        domain: 'swanchat-backend.onrender.com'
+    });
+    res.status(200).json({ msg: 'logout successfully' });
+})
 
 export default router;
