@@ -8,8 +8,6 @@ import qs from 'qs';
 import authMiddleware from "../../middleware/auth.middleware.js";
 const router = express();
 
-router.use(express.json())
-
 //Signup and Signin by google
 router.post('/google', async (req, res) => {
     try {

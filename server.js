@@ -3,7 +3,7 @@ import cors from 'cors';
 import dotenv from "dotenv";
 import cookieParser from "cookie-parser";
 import auth from './router/authentication/auth.js';
-import pool from "./database/db.connection.js";
+import upload from './router/cloudinary/cloudinary.signature.js';
 
 dotenv.config();
 const PORT = process.env.PORT || 8000;
@@ -18,5 +18,6 @@ app.use(cors({
 }));
 
 app.use('/auth', auth);
+app.use('/upload', upload);
 
 app.listen(PORT, () => console.log('listening on port', PORT))
