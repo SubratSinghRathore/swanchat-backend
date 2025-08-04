@@ -4,7 +4,7 @@ import dotenv from "dotenv";
 import cookieParser from "cookie-parser";
 import auth from './router/authentication/auth.js';
 import upload from './router/cloudinary/cloudinary.signature.js';
-import post from './router/createPost/imagePost.js';
+import post from './router/createPost/createNewPost.js';
 
 dotenv.config();
 const PORT = process.env.PORT || 8000;

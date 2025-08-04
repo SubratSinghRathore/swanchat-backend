@@ -4,7 +4,7 @@ import pool from "../../database/db.connection.js";
 import authMiddleware from "../../middleware/auth.middleware.js";
 const router = express();
 
-router.post('/image', authMiddleware, async (req, res) => {
+router.post('/new', authMiddleware, async (req, res) => {
     try {
         //Extracting user data from user request
         const origin = req.user;
